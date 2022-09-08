@@ -4,5 +4,4 @@ then
   $MAYBEREMOTE JLinkRTTLogger -Device NRF52832_XXAA -RTTChannel 1 -if SWD -Speed 4000 rtt.log
   exit 0
 fi
-#$MAYBEREMOTE kermit -l $PORT -b 115200 -C "set carrier-watch off,connect"
 $MAYBEREMOTE miniterm --rts 0 --raw $PORT 115200
