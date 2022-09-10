@@ -1,27 +1,41 @@
 #set -x
 if [ "$ZEPHYR_SIGN" = "1" ] ; then OBJECT=build/${BOARD}/zephyr/zephyr.signed.hex ; else OBJECT=build/$BOARD/zephyr ; fi
 if [ $# -ge 1 ] ; then OBJECT=$1 ; fi
-    #-c \"adapter usb location ${USBLOC}\" \
-    #-c \"transport select swd\" \
-    #-f interface/jlink.cfg \
+
 echo "PROGRAMMING ${BOARD} <= ${OBJECT}"
-if [ -z "$ZEPHYR_HELPER" ]
-then
-    sudo openocd \
-	-c "adapter usb location ${USBLOC}" \
-	-c "adapter driver jlink" \
-	-c "transport select swd" \
-	-f target/nrf52.cfg \
-	-c init \
-	-c "program ${OBJECT} verify reset exit"
-else
+
+if [ -n "$ZEPHYR_HELPER" ] ; then
+   WITHHELPER="ssh -t ${ZEPHYR_HELPER}"
    NAME=`basename "${OBJECT}"`
    scp $OBJECT ${ZEPHYR_HELPER}:tmp/$NAME
-   ssh -t ${ZEPHYR_HELPER} time sudo openocd -c \"adapter usb location ${USBLOC}\" \
-    -c \"adapter driver jlink\" \
-    -c \"transport select swd\" \
-    -f target/nrf52.cfg \
-    -c init \
-    -c \"program tmp/${NAME} verify reset exit\"
+   OBJFILE="tmp/${NAME}"
+   Q="\\\""
+else
+   WITHHELPER=""
+   Q="\""
+   OBJFILE=${OBJECT}
 fi
-   
+
+VERSION=`${WITHHELPER} openocd --version 2>&1 | head -1 | awk '{print $4}'`
+
+if [ "$VERSION" = "0.11.0" ] ; then
+  # shitty old version of openocd
+  #${WITHHELPER} sudo openocd -c \"adapter usb location ${USBLOC}\" \
+  ${WITHHELPER} sudo openocd \
+      -f interface/jlink.cfg \
+      -c "transport select swd" \
+      -f target/nrf52.cfg \
+      -c init \
+      -c nrf52_recover \
+      -c \"program ${OBJFILE} verify reset exit\"
+else
+  # sexy new version of openocd
+  #${WITHHELPER} sudo openocd -c \"adapter usb location ${USBLOC}\" \
+  ${WITHHELPER} sudo openocd \
+      -c \"adapter driver jlink\" \
+      -c \"transport select swd\" \
+      -f target/nrf52.cfg \
+      -c init \
+      -c \"program ${OBJFILE} verify reset exit\"
+fi
+
