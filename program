@@ -1,6 +1,7 @@
 #set -x
 if [ "$ZEPHYR_SIGN" = "1" ] ; then OBJECT=build/${BOARD}/zephyr/zephyr.signed.hex ; else OBJECT=build/$BOARD/zephyr ; fi
 if [ $# -ge 1 ] ; then OBJECT=$1 ; fi
+[ -z "$OPENOCD" ] && OPENOCD=openocd
 
 echo "PROGRAMMING ${BOARD} <= ${OBJECT}"
 
@@ -9,33 +10,37 @@ if [ -n "$ZEPHYR_HELPER" ] ; then
    NAME=`basename "${OBJECT}"`
    scp $OBJECT ${ZEPHYR_HELPER}:tmp/$NAME
    OBJFILE="tmp/${NAME}"
-   Q="\\\""
+   Q=\\\"
 else
    WITHHELPER=""
-   Q="\""
+   Q=
    OBJFILE=${OBJECT}
 fi
 
-VERSION=`${WITHHELPER} openocd --version 2>&1 | head -1 | awk '{print $4}'`
+VERSION=`${WITHHELPER} ${OPENOCD} --version 2>&1 | head -1 | awk '{print $4}'`
 
-if [ "$VERSION" = "0.11.0" ] ; then
+if echo "$VERSION" | grep -e "0\.11\.0" >/dev/null
+then
   # shitty old version of openocd
-  #${WITHHELPER} sudo openocd -c \"adapter usb location ${USBLOC}\" \
-  ${WITHHELPER} sudo openocd \
+  #${WITHHELPER} ${OPENOCD} \
+  #    -f interface/jlink.cfg \
+  #    -c "${Q}transport select swd${Q}" \
+  #    -f target/nrf52.cfg \
+  #    -c init \
+  #    -c "${Q}program ${OBJFILE} verify reset exit${Q}"
+  ${WITHHELPER} ${OPENOCD} \
       -f interface/jlink.cfg \
-      -c "transport select swd" \
+      -c "${Q}transport select swd${Q}" \
       -f target/nrf52.cfg \
       -c init \
-      -c nrf52_recover \
-      -c \"program ${OBJFILE} verify reset exit\"
+      -c "${Q}program ${OBJFILE} verify reset exit${Q}"
 else
-  # sexy new version of openocd
-  #${WITHHELPER} sudo openocd -c \"adapter usb location ${USBLOC}\" \
-  ${WITHHELPER} sudo openocd \
-      -c \"adapter driver jlink\" \
-      -c \"transport select swd\" \
+    # sexy new version of openocd
+  ${WITHHELPER} ${OPENOCD} -c "adapter usb location ${USBLOC}" \
+      -c "${Q}adapter driver jlink${Q}" \
+      -c "${Q}transport select swd${Q}" \
       -f target/nrf52.cfg \
       -c init \
-      -c \"program ${OBJFILE} verify reset exit\"
+      -c "${Q}program ${OBJFILE} verify reset exit${Q}"
 fi
 

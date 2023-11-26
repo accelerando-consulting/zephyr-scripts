@@ -1,26 +1,19 @@
 #set -x
-if [ "$ZEPHYR_SIGN" = "1" ] ; then OBJECT=zephyr.signed ; else OBJECT=zephyr ; fi
-if [ -z "$ZEPHYR_HELPER" ]
+if [ "$ZEPHYR_SIGN" = "1" ] ; then OBJECT=build/${BOARD}/zephyr/zephyr.signed.hex ; else OBJECT=build/$BOARD/zephyr ; fi
+if [ $# -ge 1 ] ; then OBJECT=$1 ; fi
+
+# use the 'program' script for remote flash, or when runner is openocd
+if [ -n "$ZEPHYR_HELPER" -o "$RUNNER" = "openocd" ] ; then
+   program $*
+   exit $?
+fi   
+
+# local only using west
+if [ -z "$RUNNER" ]
 then
-  if [ -z "$RUNNER" ]
-  then
-    # Use the default runner
-    time west flash -d ${BUILD_DIR} --hex-file ${BUILD_DIR}/zephyr/${OBJECT}.hex
-  elif [ "$RUNNER" = "openocd" ]
-  then
-    # Use openocd (outside of west)
-    time program
-  else
-    # Use west with the nominated runner
-    time west flash -d ${BUILD_DIR} --runner ${RUNNER} --hex-file ${BUILD_DIR}/zephyr/${OBJECT}.hex
-  fi
+  # Use the default runner
+  time west flash -d ${BUILD_DIR} --hex-file ${OBJECT}
 else
-  rsync -Pv ${BUILD_DIR}/zephyr/${OBJECT}.hex ${ZEPHYR_HELPER}:tmp/${PROGRAM}.hex  
-  rsync -Pv ${BUILD_DIR}/zephyr/${OBJECT}.bin ${ZEPHYR_HELPER}:tmp/${PROGRAM}.bin
-  ssh -t ${ZEPHYR_HELPER} time sudo openocd -c \"adapter usb location ${USBLOC}\" \
-    -c \"adapter driver jlink\" \
-    -c \"transport select swd\" \
-    -f target/nrf52.cfg \
-    -c init \
-    -c \"program tmp/${PROGRAM}.hex verify reset exit\"
+  # Use west with the nominated runner
+  time west flash -d ${BUILD_DIR} --runner ${RUNNER} --hex-file ${BUILD_DIR}/zephyr/${OBJECT}.hex
 fi
