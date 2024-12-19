@@ -18,4 +18,12 @@ perl -pi -e '
 	s/BUILD_NUMBER $oldbuild/BUILD_NUMBER $newbuild/;
       }
   ' ${CONFIG}
+perl -pi -e '
+    if (/^CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION="[\d\.]+\+(\d+)"/) {
+     	my $oldbuild=$1;
+	my $newbuild=$oldbuild+1;
+        s/\+$oldbuild/+$newbuild/;
+    }
+    ' prj.conf
 grep BUILD_NUMBER ${CONFIG}
+grep SIGN_VERSION prj.conf
